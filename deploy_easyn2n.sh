@@ -1,75 +1,127 @@
 #!/bin/bash
 
-# 检查是否以root权限运行
-if [ "$(id -u)" != "0" ]; then
-   echo "此脚本必须以root权限运行" 
-   exit 1
-fi
+# 检测系统发行版
+detect_os() {
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+        OS_NAME=$ID
+        OS_VERSION=$VERSION_ID
+    else
+        echo "无法确定操作系统类型"
+        exit 1
+    fi
+}
 
-# 询问节点位置
-read -p "节点是否在中国大陆？(y/n): " in_china
+# 安装依赖函数
+install_dependencies() {
+    if [ "$OS_NAME" = "ubuntu" ]; then
+        sudo apt-get update
+        sudo apt-get install -y autoconf make gcc wget tar ufw
+    elif [ "$OS_NAME" = "centos" ]; then
+        sudo yum install -y epel-release
+        sudo yum install -y autoconf make gcc wget tar firewalld
+        sudo systemctl start firewalld
+        sudo systemctl enable firewalld
+    else
+        echo "不支持的操作系统: $OS_NAME"
+        exit 1
+    fi
+}
 
-# 设置下载源
-if [[ "$in_china" =~ ^[Yy]$ ]]; then
-    echo "使用GitHub镜像站下载"
-    download_prefix="https://ghproxy.com/"
-else
-    echo "使用直接GitHub链接下载"
-    download_prefix=""
-fi
+# 主程序
+main() {
+    detect_os
+    
+    # 询问是否在中国大陆
+    read -p "节点是否在中国大陆? (y/n): " in_china
+    USE_MIRROR=false
+    if [[ "$in_china" =~ ^[Yy]$ ]]; then
+        USE_MIRROR=true
+        echo "将使用国内镜像源"
+    fi
 
-# 安装n2n
-echo "正在下载并安装n2n..."
-wget ${download_prefix}https://github.com/ntop/n2n/releases/download/3.1.1/n2n_3.1.1_amd64.deb
-dpkg -i n2n_3.1.1_amd64.deb
-apt-get install autoconf make gcc -y
+    # 安装基础依赖
+    install_dependencies
 
-# 设置工作目录
-read -p "请输入easyn2n服务端目录（默认/opt）: " work_dir
-work_dir=${work_dir:-/opt}
+    # 下载n2n二进制包
+    N2N_VERSION="3.1.1"
+    ARCH="amd64"
+    if [ "$USE_MIRROR" = true ]; then
+        BASE_URL="https://ghproxy.com/https://github.com/ntop/n2n/releases/download"
+    else
+        BASE_URL="https://github.com/ntop/n2n/releases/download"
+    fi
 
-# 创建目录并下载源码
-echo "正在设置easyn2n服务端..."
-mkdir -p "$work_dir"
-cd "$work_dir"
+    if [ "$OS_NAME" = "ubuntu" ]; then
+        PKG_NAME="n2n_${N2N_VERSION}_${ARCH}.deb"
+        wget "${BASE_URL}/${N2N_VERSION}/${PKG_NAME}"
+        sudo dpkg -i "$PKG_NAME"
+        rm -f "$PKG_NAME"
+    elif [ "$OS_NAME" = "centos" ]; then
+        PKG_NAME="n2n-${N2N_VERSION}-1.${ARCH}.rpm"
+        wget "${BASE_URL}/${N2N_VERSION}/${PKG_NAME}"
+        sudo rpm -ivh "$PKG_NAME"
+        rm -f "$PKG_NAME"
+    fi
 
-wget ${download_prefix}https://github.com/ntop/n2n/archive/refs/tags/3.0.tar.gz -O n2n-3.0.tar.gz
-tar xzvf n2n-3.0.tar.gz
-cd n2n-3.0
+    # 设置easyn2n目录
+    read -p "设置easyn2n服务端目录 (默认/opt): " EASYN2N_DIR
+    EASYN2N_DIR=${EASYN2N_DIR:-/opt}
+    sudo mkdir -p "$EASYN2N_DIR"
+    cd "$EASYN2N_DIR" || exit 1
 
-# 编译安装
-./autogen.sh
-./configure
-make && make install
+    # 下载并编译n2n 3.0源码
+    SOURCE_URL="${BASE_URL}/3.0.tar.gz"
+    wget "$SOURCE_URL" -O n2n-3.0.tar.gz
+    sudo tar xzvf n2n-3.0.tar.gz
+    cd n2n-3.0 || exit 1
+    sudo ./autogen.sh
+    sudo ./configure
+    sudo make
+    sudo make install
 
-# 设置运行端口
-read -p "请输入运行端口（默认7777）: " port
-port=${port:-7777}
+    # 设置运行端口
+    read -p "设置easyn2n运行端口: " PORT
+    if ! [[ "$PORT" =~ ^[0-9]+$ ]] || [ "$PORT" -lt 1 ] || [ "$PORT" -gt 65535 ]; then
+        echo "无效的端口号"
+        exit 1
+    fi
 
-# 配置防火墙
-echo "配置防火墙规则..."
-ufw allow $port/udp
+    # 配置防火墙
+    if [ "$OS_NAME" = "ubuntu" ]; then
+        sudo ufw allow "$PORT"/udp
+        sudo ufw reload
+    elif [ "$OS_NAME" = "centos" ]; then
+        sudo firewall-cmd --permanent --add-port="$PORT"/udp
+        sudo firewall-cmd --reload
+    fi
 
-# 启动服务
-echo "启动supernode服务..."
-supernode -p $port > /dev/null 2>&1 &
-sleep 2
+    # 启动服务
+    sudo supernode -p "$PORT" &
+    SUPERNODE_PID=$!
+    sleep 2
 
-# 获取本机IP
-ip_address=$(hostname -I | awk '{print $1}')
+    # 获取本机IP
+    IP_ADDR=$(hostname -I | awk '{print $1}')
 
-# 显示结果
-echo ""
-echo "========================================"
-echo " easyn2n节点部署成功！"
-echo "----------------------------------------"
-echo " 监听地址: $ip_address:$port"
-echo " 连接方式: $ip_address:$port"
-echo "----------------------------------------"
-echo " 停止命令: sudo kill \$(pgrep supernode)"
-echo "========================================"
-echo ""
+    echo ""
+    echo "========================================"
+    echo " easyn2n 节点部署成功!"
+    echo "----------------------------------------"
+    echo " 监听地址: ${IP_ADDR}:${PORT}"
+    echo " 进程ID: ${SUPERNODE_PID}"
+    echo "========================================"
+    echo ""
+    echo "关闭服务:"
+    echo "  sudo kill ${SUPERNODE_PID}"
+    echo "或手动查找进程:"
+    echo "  ps -ef | grep supernode"
+    echo "  sudo kill <PID>"
+    echo "========================================"
 
-# 显示运行状态
-echo "当前supernode进程状态:"
-ps aux | grep supernode | grep -v grep
+    # 返回前台运行（可选）
+    wait $SUPERNODE_PID
+}
+
+# 执行主程序
+main
