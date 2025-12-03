@@ -117,12 +117,8 @@ download_n2n() {
     local filename="3.1.1.tar.gz"
     
     cd "$install_path"
-    
-    if [ -f "$filename" ]; then
-        log_info "发现已存在的源码包，跳过下载"
-    else
-        log_info "下载 n2n 源码..."
-        wget "$github_url" -O "$filename"
+    log_info "下载 n2n 源码..."
+    wget "$github_url" -O "$filename"
         if [ $? -ne 0 ]; then
             log_error "下载失败，请检查网络连接"
             exit 1
