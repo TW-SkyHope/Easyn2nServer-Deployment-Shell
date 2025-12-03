@@ -114,7 +114,7 @@ configure_firewall() {
 download_n2n() {
     local install_path=$1
     local github_url=$2
-    local filename="3.1.1.tar.gz"
+    local filename="3.0.tar.gz"
     
     cd "$install_path"
     log_info "下载 n2n 源码..."
@@ -135,7 +135,7 @@ download_n2n() {
 compile_install() {
     local install_path=$1
     
-    cd "$install_path/n2n-3.1.1"
+    cd "$install_path/n2n-3.0"
     
     log_info "开始编译安装 n2n..."
     
