@@ -1,6 +1,6 @@
 # Easyn2nServer-Deployment-Shell
 
-一个用于部署和管理 easyn2n 节点的交互式 shell 脚本，支持 Debian 和 Red Hat Enterprise Linux 架构。
+一个用于部署和管理 n2n supernode 节点的交互式 shell 脚本，支持 Debian 和 Red Hat Enterprise Linux 架构。
 
 ## 功能特性
 
@@ -39,26 +39,26 @@ wget -O deploy_easyn2n.sh "https://raw.githubusercontent.com/TW-SkyHope/Easyn2nS
 
 ```
 ========================================
-easyn2n节点管理脚本
+n2n节点管理脚本
 ========================================
 检测到系统类型：debian
 
 请选择操作：
-1. 安装easyn2n
+1. 安装n2n supernode
 2. 启动supernode
 3. 停止supernode
 4. 查看supernode状态
 5. 退出
 ```
 
-### 1. 安装 easyn2n
+### 1. 安装 n2n supernode
 
 选择选项 `1` 开始安装流程：
 
-1. 输入安装目录（默认：`/opt/easyn2n`）
+1. 输入安装目录（默认：`/opt/n2n`）
 2. 脚本会自动：
    - 安装编译依赖
-   - 下载 easyn2n 3.0 源码
+   - 下载 n2n 3.0 源码
    - 解压并编译安装
    - 清理安装包
 
