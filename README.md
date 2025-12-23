@@ -28,7 +28,7 @@
 ## 快速开始
 
 ```bash
-wget -O deploy_easyn2n.sh "https://raw.githubusercontent.com/TW-SkyHope/Easyn2nServer-Deployment-Shell/main/deploy_easyn2n.sh" && chmod +x deploy_easyn2n.sh && ./deploy_easyn2n.sh
+wget -O deploy_supernode.sh "https://raw.githubusercontent.com/TW-SkyHope/Easyn2nServer-Deployment-Shell/main/deploy_supernode.sh" && chmod +x deploy_supernode.sh && ./deploy_supernode.sh
 ```
 
 ## 使用指南
