@@ -66,6 +66,14 @@ install_n2n() {
 
 # 启动supernode
 start_supernode() {
+    # 先检查进程是否已在运行
+    PID=$(pgrep -x "supernode")
+    if [ -n "$PID" ]; then
+        echo "错误：supernode已在运行，PID: $PID"
+        echo "请先停止当前运行的supernode进程，或使用查看状态功能获取更多信息"
+        return 1
+    fi
+    
     # 检查是否已安装
     if ! command -v supernode &> /dev/null; then
         echo "错误：supernode未安装，请先执行安装操作"
@@ -111,7 +119,7 @@ start_supernode() {
 stop_supernode() {
     echo "正在停止supernode..."
     # 查找supernode进程
-    PID=$(ps -ef | grep "supernode" | grep -v grep | awk '{print $2}')
+    PID=$(pgrep -x "supernode")
     
     if [ -n "$PID" ]; then
         sudo kill "$PID"
@@ -124,11 +132,13 @@ stop_supernode() {
 # 查看supernode状态
 status_supernode() {
     echo "正在查看supernode状态..."
-    PID=$(ps -ef | grep "supernode" | grep -v grep | awk '{print $2}')
+    PID=$(pgrep -x "supernode")
     
     if [ -n "$PID" ]; then
         echo "supernode正在运行，PID: $PID"
-        echo "监听端口：$(sudo netstat -tuln | grep "supernode" | awk '{print $4}' | awk -F: '{print $NF}')"
+        # 获取监听端口
+        PORT=$(sudo ss -tulnp | grep "pid=$PID" | grep -v "127.0.0.1" | awk '{print $5}' | awk -F: '{print $NF}' | head -1)
+        echo "监听端口：$PORT"
     else
         echo "supernode未运行"
     fi
